@@ -101,7 +101,7 @@ while True:
     resizedImage = cv2.resize(image, resizedImageSize)
 
     confidenceMap = np.zeros((resizedImage.shape[0], resizedImage.shape[1], 1), dtype = "uint8")
-    boundingboxMap = np.zeros((resizedImage.shape[0], resizedImage.shape[1], 4), dtype = "uint32")
+    boundingboxMap = np.zeros((resizedImage.shape[0], resizedImage.shape[1], 4), dtype = "uint16")
 
     objectCount = int(fddbFile.readline())
     rectList = []
@@ -142,7 +142,7 @@ while True:
 
         images = np.zeros((1, 3, sampleSize, sampleSize), dtype = "uint8")
         confidenceMaps = np.zeros((1, 1, sampleSize, sampleSize), dtype = "uint8")
-        boundingboxMaps = np.zeros((1, 4, sampleSize, sampleSize), dtype = "uint32")
+        boundingboxMaps = np.zeros((1, 4, sampleSize, sampleSize), dtype = "uint16")
         confidenceMaps[0] = np.transpose(cutConfidenceMap, (2, 0, 1))
         images[0] = np.transpose(cutImage, (2, 0, 1))
         boundingboxMaps[0] = np.transpose(cutBoundingboxMap, (2, 0, 1))
