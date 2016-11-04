@@ -3,8 +3,9 @@ from math import atan, tan, cos, sin, fabs
 import numpy as np
 import h5py
 import sys
+import random
 
-class Ellipse:
+class Ellipse :
     def __init__(self, major_axis_radius, minor_axis_radius,
                        angle, center_x, center_y) :
         self.major_axis_radius_ = major_axis_radius
@@ -49,7 +50,7 @@ def readEllipse(f) :
     p = line.split(" ")
     return Ellipse(float(p[0]), float(p[1]), float(p[2]), float(p[3]), float(p[4]))
 
-def inRect(rect, point):
+def inRect(rect, point) :
     if rect[0] < point[0] < rect[0]+rect[2] and rect[1] < point[1] < rect[1]+rect[3] :
        return True
     else : 
@@ -62,72 +63,112 @@ def distanceToRect(rect, point) :
         return (0, 0, 0, 0)
 
 
-fddb_file = sys.argv[1] 
+fddbFilePath = sys.argv[1] 
 prefix = sys.argv[2]
-data_directory = sys.argv[3]
+dataDirectory = sys.argv[3]
 sampleSize = int(sys.argv[4])
-f = open(fddb_file, 'r')
-fileList = []
-index = 1
+intersectionPercent = float(sys.argv[5])
+stride = int(sampleSize * (1 - intersectionPercent))
+setProbability = float(sys.argv[6])
+fddbFile = open(fddbFilePath, 'r')
+
+trainList = []
+testList = []
+testIndex = 1
+trainIndex = 1
 while True:
-    img_path = prefix + f.readline().strip('\n') + ".jpg"
-    if prefix+".jpg" == img_path:
+    imageName = fddbFile.readline().strip('\n')
+    if imageName == "":
         break
-    print img_path
-    image = cv2.imread(img_path)
-    cv2.imwrite("img1.png", image)
+
+    imagePath = prefix + imageName + ".jpg"
+    print imagePath
+    image = cv2.imread(imagePath)
+
+    imageSize = (image.shape[1], image.shape[0])
     scale = 0
-    oldSize = (image.shape[1], image.shape[0])
-    newSize = 0
-    if image.shape[0] < image.shape[1] :
+    resizedImageSize = 0
+    orientation = 0 # 0 - vertical, 1 - horizontal
+    if image.shape[0] < image.shape[1] : 
         scale = float(sampleSize)/image.shape[0]
-        newSize = (int(image.shape[1]*scale), sampleSize)
+        resizedImageSize = (int(image.shape[1]*scale), sampleSize)
+        orientation = 1
     else :
         scale = float(sampleSize)/image.shape[1]
-        newSize = (sampleSize, int(image.shape[0]*scale))
-    print "resize: ", oldSize, "->", newSize
-    print scale
-    image = cv2.resize(image, newSize)
-    cv2.imwrite("img.png", image)
-    images = np.zeros((1, 3, image.shape[0], image.shape[1]), dtype = "uint8")
-    confidence_heatmaps = np.zeros((1, 1, image.shape[0], image.shape[1]), dtype = "uint8")
-    
-    boundingbox_heatmaps = np.zeros((1, 4,image.shape[0], image.shape[1]), dtype = "uint32")
+        resizedImageSize = (sampleSize, int(image.shape[0]*scale))
+        orientation = 0
 
-    confidence_heatmap = np.zeros((image.shape[0], image.shape[1], 1), dtype = "uint8")
-    boundingbox_heatmap = np.zeros((image.shape[0], image.shape[1], 4), dtype = "uint32")
+    resizedImage = cv2.resize(image, resizedImageSize)
 
-    objectCount = int(f.readline())
+    confidenceMap = np.zeros((resizedImage.shape[0], resizedImage.shape[1], 1), dtype = "uint8")
+    boundingboxMap = np.zeros((resizedImage.shape[0], resizedImage.shape[1], 4), dtype = "uint32")
+
+    objectCount = int(fddbFile.readline())
     rectList = []
     for i in range(0, objectCount):
-        newEllipse = readEllipse(f)
+        newEllipse = readEllipse(fddbFile)
         newEllipse.scale(scale)
-        newEllipse.draw(confidence_heatmap, 255, -1)
+        newEllipse.draw(confidenceMap, 255, -1)
         r = newEllipse.toRect()
         rectList.append(r)
-        for x in range(0, image.shape[0]):
-            for y in  range(0, image.shape[1]):
+        for x in range(0, resizedImage.shape[0]):
+            for y in  range(0, resizedImage.shape[1]):
                 for rect in rectList:
                     dist = distanceToRect(rect, (x,y))
                     if dist != (0,0,0,0):
-                        boundingbox_heatmap[x,y,0]=dist[0]
-                        boundingbox_heatmap[x,y,1]=dist[1]
-                        boundingbox_heatmap[x,y,2]=dist[2]
-                        boundingbox_heatmap[x,y,3]=dist[3]
-    cv2.imshow("conf", confidence_heatmap)
-    cv2.waitKey(0)
-    confidence_heatmaps[0] = np.transpose(confidence_heatmap, (2, 0, 1))
-    images[0] = np.transpose(image, (2, 0, 1))
-    boundingbox_heatmaps[0] = np.transpose(boundingbox_heatmap, (2, 0, 1))
-    filename = sys.argv[3]+'train%d.h5' % index
-    h = h5py.File(filename, 'w') 
-    h['image'] = images
-    h['confidence'] = confidence_heatmaps
-    h['boundingbox']= boundingbox_heatmaps
-    fileList.append(filename)
-    index+=1
-    h.close()
+                        boundingboxMap[x,y,0]=dist[0]
+                        boundingboxMap[x,y,1]=dist[1]
+                        boundingboxMap[x,y,2]=dist[2]
+                        boundingboxMap[x,y,3]=dist[3]
 
-with open("list.txt", 'w') as fi:
-    for filename in fileList:
+    #image width - image.shape[1], image height - image.shape[0]
+    border = 0
+    if orientation == 0 :
+        border = resizedImage.shape[0]
+    if orientation == 1 :
+        border = resizedImage.shape[1]
+
+    sampleCount = 0
+    while stride * sampleCount + sampleSize < border :
+        if orientation == 0 : # vertical image height > width
+            x = 0
+            y =  stride * sampleCount
+        if orientation == 1 : # horizontal image width > height
+            x = stride * sampleCount
+            y = 0
+        cutImage = resizedImage[y:y+sampleSize, x:x+sampleSize]
+        cutConfidenceMap = confidenceMap[y:y+sampleSize, x:x+sampleSize]
+        cutBoundingboxMap = boundingboxMap[y:y+sampleSize, x:x+sampleSize]
+
+        images = np.zeros((1, 3, sampleSize, sampleSize), dtype = "uint8")
+        confidenceMaps = np.zeros((1, 1, sampleSize, sampleSize), dtype = "uint8")
+        boundingboxMaps = np.zeros((1, 4, sampleSize, sampleSize), dtype = "uint32")
+        confidenceMaps[0] = np.transpose(cutConfidenceMap, (2, 0, 1))
+        images[0] = np.transpose(cutImage, (2, 0, 1))
+        boundingboxMaps[0] = np.transpose(cutBoundingboxMap, (2, 0, 1))
+        sampleSetProbability = random.random()
+        filename = ""
+        if sampleSetProbability > setProbability :
+            filename = sys.argv[3]+'train%d.h5' % trainIndex
+            trainList.append(filename)
+            trainIndex += 1
+        else :
+            filename = sys.argv[3]+'test%d.h5' % testIndex
+            testList.append(filename)
+            testIndex += 1
+        h = h5py.File(filename, 'w') 
+        h['image'] = images
+        h['confidence'] = confidenceMaps
+        h['boundingbox'] = boundingboxMaps
+        h.close()
+        sampleCount += 1 
+
+print "-----Result-----"
+print "Train sample count:", trainIndex - 1
+print "Test sample count:", testIndex - 1
+with open("train.txt", 'w') as fi :
+    for filename in trainList :
+        fi.write(filename + '\n')
+with open("test.txt", 'w') as fi :
+    for filename in testList :
         fi.write(filename + '\n')
