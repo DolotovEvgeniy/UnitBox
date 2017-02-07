@@ -11,14 +11,10 @@
 
 class Component {
 public:
-    Component();
+    Component() = default;
     Component(std::vector<cv::Point> points);
-    Component(const Component& component);
-    Component& operator=(const Component& component);
     cv::Point center();
 private:
     std::vector<cv::Point> points;
 };
-
-void findComponent(cv::Mat map, std::vector<Component> components);
 #endif // COMPONENT_H
