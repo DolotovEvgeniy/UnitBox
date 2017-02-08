@@ -3,9 +3,16 @@
 using namespace std;
 using namespace cv;
 
-BoundingboxMap::BoundingboxMap(int width, int height, float* data) {
-    for(int i = 0; channelsCount(); i++) {
-        map_[i] = Mat(height, width, CV_32FC1, data + width*height*i);
+BoundingboxMap::BoundingboxMap(int width, int height, const float* data) {
+    float *tmpData = new float[width*height*channelsCount()];
+    for(int i = 0; i<width*height*channelsCount(); i++) {
+        tmpData[i] = data[i];
+    }
+    for(int i = 0; i < channelsCount(); i++) {
+        map_[i] = Mat(height, width, CV_32FC1, tmpData + width*height*i);
+         cv::normalize(map_[i], map_[i], 0, 1, cv::NORM_MINMAX);
+         imshow("fff", map_[i]);
+         waitKey(0);
     }
 }
 

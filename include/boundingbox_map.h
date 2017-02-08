@@ -24,7 +24,7 @@ class BoundingboxMap {
 public:
     BoundingboxMap() = default;
     BoundingboxMap(int width, int height);
-    BoundingboxMap(int width, int height, float* data);
+    BoundingboxMap(int width, int height, const float* data);
     BoundingboxMap(const BoundingboxMap& map);
     BoundingboxMap& operator=(const BoundingboxMap& map);
     cv::Size size() const;

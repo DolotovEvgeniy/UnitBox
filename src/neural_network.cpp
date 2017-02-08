@@ -16,12 +16,9 @@ NeuralNetwork::NeuralNetwork(string configFile, string trainedModel) {
 #endif
 
     net.reset(new Net<float>(configFile, caffe::TEST));
-    cout << "here" << endl;
     net->CopyTrainedLayersFrom(trainedModel);
     Blob<float>* input_layer = net->input_blobs()[0];
     assert(input_layer->width() == input_layer->height());
-    Blob<float>* output_layer = net->output_blobs()[0];
-    cout << output_layer->width();
 }
 
 void NeuralNetwork::processImage(const Mat &img, ConfidenceMap& confMap,
@@ -53,17 +50,14 @@ void NeuralNetwork::fillNeuralNetInput(const Mat &img) {
 
 void NeuralNetwork::getNeuralNetOutput(ConfidenceMap& confMap,
                                        BoundingboxMap& boxMap) {
-/*    Blob<float>* output_layer = net->output_blobs()[0];
-    const float* begin = output_layer->cpu_data();
-    float* data = new float[output_layer->height()*output_layer->width()];
+     Blob<float>* boundingbox_layer = net->output_blobs()[0];
+     Blob<float>* confidence_layer = net->output_blobs()[1];
 
-    for (int k = 0; k < output_layer->channels(); k++) {
-        for (int i  = 0; i < output_layer->height()*output_layer->width();  i++) {
-            data[i] = begin[i+output_layer->height()*output_layer->width()*k];
-        }
-        Mat conv(output_layer->height(), output_layer->width(), CV_32FC1, data);
-        map.addLayer(conv.clone());
-    }*/
+     int width  = boundingbox_layer->width();
+     int height = boundingbox_layer->height();
+
+     confMap = ConfidenceMap(width, height, confidence_layer->cpu_data());
+     boxMap  = BoundingboxMap(width, height, boundingbox_layer->mutable_cpu_data());
 }
 
 void NeuralNetwork::calculate() {

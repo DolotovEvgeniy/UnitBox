@@ -100,11 +100,15 @@ void saveImageWithObjects(string file_name, const Mat& image, const vector<Rect>
 int main(int argc, char *argv[]) {
     Mat image;
     string netConfiguration, pretrainedNet;
+
     int returnCode = parseCommandLine(argc, argv, image,
                                       netConfiguration, pretrainedNet);
     if (returnCode != ReturnCode::Success) {
         return returnCode;
     }
+
+    NeuralNetwork net( netConfiguration, pretrainedNet);
+
     UnitboxDetector detector(netConfiguration, pretrainedNet);
     vector<Rect> detectedObjects;
     detector.detect(image, detectedObjects);

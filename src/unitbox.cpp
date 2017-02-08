@@ -39,7 +39,7 @@ void UnitboxDetector::detect(const Mat& image,
     }
     
     vector<Component> components;
-    confidenceMap.findComponents(components);
+    confidenceMap.findComponents(0.5, components);
 
     vector<Point> centers;
     for(size_t i = 0; i < components.size(); i++) {
@@ -115,8 +115,8 @@ void UnitboxDetector::mergeMaps(int stride, MergeType type,
                     if(oldConfValue < newConfValue) {
                         fullConfMap.at(x, y+stride*i) = newConfValue;
                     }
-                    int channels = fullBoxMap.channels();
-                    for(int c = 0; c < channels; c++) {
+
+                    for(auto c: CHANNELS) {
                         float oldBoxValue = fullBoxMap.at(x, y+stride*i, c);
                         float newBoxValue = boundingboxMaps[i].at(x, y, c);
                         if(oldBoxValue < newBoxValue) {
@@ -139,8 +139,7 @@ void UnitboxDetector::mergeMaps(int stride, MergeType type,
                     if(oldConfValue < newConfValue) {
                         fullConfMap.at(x+stride*i, y) = newConfValue;
                     }
-                    int channels = fullBoxMap.channels();
-                    for(int c = 0; c < channels; c++) {
+                    for(auto c: CHANNELS) {
                         float oldBoxValue = fullBoxMap.at(x+stride*i, y, c);
                         float newBoxValue = boundingboxMaps[i].at(x, y, c);
                         if(oldBoxValue < newBoxValue) {
